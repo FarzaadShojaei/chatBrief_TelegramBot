@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  telegram-bot:
+    build: .
+    container_name: telegram_summary_bot
+    restart: always
+    environment:
+      TELEGRAM_TOKEN: "${TELEGRAM_TOKEN}"
+      OPENAI_API_KEY: ""  # خالی = استفاده از مدل لوکال
+      GROUP_CHAT_ID: "${GROUP_CHAT_ID}"
+    depends_on:
+      - ollama
+    networks:
+      - ollama_net
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - ollama_net
+
+volumes:
+  ollama_data:
+
+networks:
+  ollama_net:
