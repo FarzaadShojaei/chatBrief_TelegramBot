@@ -42,9 +42,20 @@ if USE_OPENAI:
 bot = Bot(token=TELEGRAM_TOKEN)
 logging.basicConfig(level=logging.INFO)
 
+# Scheduled summary task
+def schedule_task():
+    schedule.every().day.at("20:25").do(scheduled_summary)  # UTC 20:25 = 23:55 Tehran time
+    while True:
+        schedule.run_pending()
+        threading.Event().wait(30)
+
 # Structure: {thread_id or None: list of messages}
 thread_logs = defaultdict(list)
 thread_titles = {}  # {thread_id: topic title}
+
+#Updater
+updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
+dp = updater.dispatcher
 
 # Handlers
 def save_message(update: Update, context: CallbackContext):
@@ -59,6 +70,8 @@ def save_message(update: Update, context: CallbackContext):
     thread_title = update.message.is_topic_message and update.message.topic_name or "Main Group Thread"
 
     # Do not auto-register unknown users to preserve manual group_members list
+
+
 
     if thread_id not in thread_titles:
         thread_titles[thread_id] = thread_title
