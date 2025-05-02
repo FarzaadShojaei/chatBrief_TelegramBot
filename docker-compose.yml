@@ -4,35 +4,21 @@ services:
     image: ollama/ollama:latest
     container_name: ollama
     restart: always
+    ports:
+      - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/completions"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    command: >
-      sh -c "ollama serve & sleep 10 && 
-             until curl -s http://localhost:11434/api/completions; do 
-               sleep 5; 
-             done && 
-             echo 'Pulling mistral model...' && 
-             ollama pull mistral && 
-             echo 'Model ready' && 
-             wait"
 
   telegram-bot:
     build: .
     container_name: telegram_summary_bot
-    restart: always
+    restart: on-failure
     env_file:
       - secret.env
     volumes:
       - ./group_members.json:/app/group_members.json
     depends_on:
-      ollama:
-        condition: service_healthy
+      - ollama
 
 volumes:
   ollama_data: {} 
