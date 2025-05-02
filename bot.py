@@ -20,12 +20,10 @@ load_dotenv("secret.env")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))
 TEHRAN_TZ = pytz.timezone("Asia/Tehran")
-OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://ollama:11434/api/generate")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.info(f"Using Ollama API URL: {OLLAMA_API_URL}")
 
 # Group members: key = user_id, value = display name
 import json
@@ -108,17 +106,36 @@ def get_messages_in_range(start, end):
 # Function to use Ollama for text generation
 def generate_with_ollama(prompt):
     try:
-        logger.info(f"Sending request to Ollama at {OLLAMA_API_URL}")
-        response = requests.post(OLLAMA_API_URL, json={
-            "model": "mistral",  # Using Mistral as default model
-            "prompt": prompt,
-            "stream": False
-        })
+        logger.info("Sending request to Ollama using completions API")
+        response = requests.post(
+            "http://ollama:11434/api/completions",
+            json={
+                "model": "mistral",
+                "prompt": prompt,
+                "stream": False
+            }
+        )
         if response.status_code == 200:
-            return response.json()["response"]
+            logger.info("Successfully received response from Ollama")
+            return response.json().get("response", "No response content")
         else:
-            logger.error(f"Ollama API error: {response.status_code}")
-            return f"⚠️ Failed to generate summary. API returned status {response.status_code}"
+            logger.error(f"Ollama completions API error: {response.status_code}")
+            
+            # Try the older generate API endpoint
+            logger.info("Trying older generate API endpoint")
+            response = requests.post(
+                "http://ollama:11434/api/generate",
+                json={
+                    "model": "mistral",
+                    "prompt": prompt
+                }
+            )
+            if response.status_code == 200:
+                logger.info("Successfully received response from generate API")
+                return response.json().get("response", "No response content")
+            else:
+                logger.error(f"Generate API also failed: {response.status_code}")
+                return f"⚠️ Failed to generate summary. API returned status {response.status_code}"
     except Exception as e:
         logger.error(f"Error calling Ollama API: {str(e)}")
         return f"⚠️ Error generating summary: {str(e)}"

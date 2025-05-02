@@ -4,9 +4,6 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set default Ollama API URL (can be overridden in docker-compose)
-ENV OLLAMA_API_URL=http://ollama:11434/api/generate
-
 WORKDIR /app
 
 # Install curl for healthcheck
@@ -24,8 +21,16 @@ COPY bot.py .
 COPY group_members.json .
 COPY secret.env .
 
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://ollama:11434/api/health || exit 1
+# Create wait-for-ollama script
+RUN echo '#!/bin/sh \n\
+echo "Waiting for Ollama to be available..." \n\
+while ! curl -s http://ollama:11434/api/completions; do \n\
+  echo "Ollama not available yet - waiting..." \n\
+  sleep 5 \n\
+done \n\
+echo "Ollama is available, pulling mistral model..." \n\
+curl -X POST http://ollama:11434/api/pull -d "{\\"name\\":\\"mistral\\"}" \n\
+echo "Starting bot..." \n\
+exec python bot.py' > /app/wait-for-ollama.sh && chmod +x /app/wait-for-ollama.sh
 
-CMD ["python", "bot.py"] 
+ENTRYPOINT ["/app/wait-for-ollama.sh"] 
