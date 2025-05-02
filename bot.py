@@ -42,13 +42,6 @@ if USE_OPENAI:
 bot = Bot(token=TELEGRAM_TOKEN)
 logging.basicConfig(level=logging.INFO)
 
-# Scheduled summary task
-def schedule_task():
-    schedule.every().day.at("20:25").do(scheduled_summary)  # UTC 20:25 = 23:55 Tehran time
-    while True:
-        schedule.run_pending()
-        threading.Event().wait(30)
-
 # Structure: {thread_id or None: list of messages}
 thread_logs = defaultdict(list)
 thread_titles = {}  # {thread_id: topic title}
@@ -71,8 +64,6 @@ def save_message(update: Update, context: CallbackContext):
 
     # Do not auto-register unknown users to preserve manual group_members list
 
-
-
     if thread_id not in thread_titles:
         thread_titles[thread_id] = thread_title
 
@@ -82,6 +73,29 @@ def save_message(update: Update, context: CallbackContext):
         "display_name": display_name,
         "text": text
     })
+
+def manual_summary(update: Update, context: CallbackContext):
+    now = datetime.now(TEHRAN_TZ)
+    start = now - timedelta(hours=24)
+    end = now
+    messages = get_messages_in_range(start, end)
+    summary = summarize_messages(messages)
+    update.message.reply_text(f"📊 Summary of the last 24 hours:\n\n{summary}")
+
+def scheduled_summary():
+    now = datetime.now(TEHRAN_TZ)
+    start = now - timedelta(hours=24)
+    end = now
+    messages = get_messages_in_range(start, end)
+    summary = summarize_messages(messages)
+    bot.send_message(chat_id=GROUP_CHAT_ID, text=f"📊 Daily Summary:\n\n{summary}")
+
+# Scheduled summary task
+def schedule_task():
+    schedule.every().day.at("20:25").do(scheduled_summary)  # UTC 20:25 = 23:55 Tehran time
+    while True:
+        schedule.run_pending()
+        threading.Event().wait(30)
 
 def get_messages_in_range(start, end):
     filtered_logs = defaultdict(list)
@@ -106,9 +120,9 @@ def summarize_messages(threaded_messages):
         thread_title = thread_titles.get(thread_id, f"Thread {thread_id}")
 
         prompt_sections.append(
-        f"[Topic: {thread_title}]\n"
-        f"Messages\n:{conversation}"
-    )  # fixed line break format  # fixed line break format
+            f"[Topic: {thread_title}]\n"
+            f"Messages\n:{conversation}"
+        )  # fixed line break format
 
     full_prompt = (
         "These are categorized chat messages from a Telegram group.\n\n"
@@ -118,7 +132,24 @@ def summarize_messages(threaded_messages):
         f"Group members: {member_list}\n\n"
         + "\n".join(prompt_sections)
     )
-    
+    if USE_OPENAI:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": "You are a summarizer."},
+                      {"role": "user", "content": full_prompt}],
+            temperature=0.7,
+            max_tokens=1500,
+        )
+        return response["choices"][0]["message"]["content"].strip()
+    else:
+        res = requests.post(
+            "http://localhost:11434/api/generate",
+            json={"model":"mistral","prompt": full_prompt, "stream": False},     
+        )
+        return res.json().get("response","(Error in local model response)").strip()
+
+# Register handlers
+dp.add_handler(MessageHandler(Filters.text & ~Filters.command, save_message))
 dp.add_handler(CommandHandler("summary", manual_summary))
 
 threading.Thread(target=schedule_task, daemon=True).start()
