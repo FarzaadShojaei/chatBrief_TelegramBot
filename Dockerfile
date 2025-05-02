@@ -21,16 +21,11 @@ COPY bot.py .
 COPY group_members.json .
 COPY secret.env .
 
-# Create wait-for-ollama script
-RUN echo '#!/bin/sh \n\
-echo "Waiting for Ollama to be available..." \n\
-while ! curl -s http://ollama:11434/api/completions; do \n\
-  echo "Ollama not available yet - waiting..." \n\
-  sleep 5 \n\
-done \n\
-echo "Ollama is available, pulling mistral model..." \n\
-curl -X POST http://ollama:11434/api/pull -d "{\\"name\\":\\"mistral\\"}" \n\
+# Create a simple shell script
+RUN echo '#!/bin/bash \n\
+echo "Waiting for Ollama to start..." \n\
+sleep 10 \n\
 echo "Starting bot..." \n\
-exec python bot.py' > /app/wait-for-ollama.sh && chmod +x /app/wait-for-ollama.sh
+python bot.py' > /app/start.sh && chmod +x /app/start.sh
 
-ENTRYPOINT ["/app/wait-for-ollama.sh"] 
+CMD ["/app/start.sh"] 

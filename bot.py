@@ -105,40 +105,47 @@ def get_messages_in_range(start, end):
 
 # Function to use Ollama for text generation
 def generate_with_ollama(prompt):
-    try:
-        logger.info("Sending request to Ollama using completions API")
-        response = requests.post(
-            "http://ollama:11434/api/completions",
-            json={
-                "model": "mistral",
-                "prompt": prompt,
-                "stream": False
-            }
-        )
-        if response.status_code == 200:
-            logger.info("Successfully received response from Ollama")
-            return response.json().get("response", "No response content")
-        else:
-            logger.error(f"Ollama completions API error: {response.status_code}")
+    # Wait for Ollama to be available (initial delay)
+    time.sleep(5)
+    
+    max_retries = 5
+    retry_delay = 2  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Attempt {attempt+1}/{max_retries} to connect to Ollama")
             
-            # Try the older generate API endpoint
-            logger.info("Trying older generate API endpoint")
-            response = requests.post(
-                "http://ollama:11434/api/generate",
-                json={
-                    "model": "mistral",
-                    "prompt": prompt
-                }
-            )
-            if response.status_code == 200:
-                logger.info("Successfully received response from generate API")
-                return response.json().get("response", "No response content")
-            else:
-                logger.error(f"Generate API also failed: {response.status_code}")
-                return f"⚠️ Failed to generate summary. API returned status {response.status_code}"
-    except Exception as e:
-        logger.error(f"Error calling Ollama API: {str(e)}")
-        return f"⚠️ Error generating summary: {str(e)}"
+            # Try to generate text using ollama
+            try:
+                response = requests.post(
+                    "http://ollama:11434/api/generate",
+                    json={"model": "mistral", "prompt": prompt},
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    logger.info("Successfully received response from Ollama")
+                    result = response.json()
+                    return result.get("response", "No text generated")
+                else:
+                    logger.warning(f"Ollama API returned status {response.status_code}")
+            except Exception as e:
+                logger.warning(f"Error connecting to Ollama: {str(e)}")
+            
+            # If we're here, the request failed
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+                retry_delay *= 2
+    
+    # If we exhausted all retries
+    return "⚠️ Failed to generate summary. Please check if Ollama is running with the mistral model."
 
 def summarize_messages(threaded_messages):
     if not threaded_messages:
@@ -176,6 +183,7 @@ def summarize_messages(threaded_messages):
 dp.add_handler(MessageHandler(Filters.text & ~Filters.command, save_message))
 dp.add_handler(CommandHandler("summary", manual_summary))
 
+logger.info("Starting the bot...")
 threading.Thread(target=schedule_task, daemon=True).start()
 
 updater.start_polling()
