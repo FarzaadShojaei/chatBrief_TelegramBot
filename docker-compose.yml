@@ -7,25 +7,11 @@ services:
     restart: always
     environment:
       TELEGRAM_TOKEN: "${TELEGRAM_TOKEN}"
-      OPENAI_API_KEY: "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"  # خالی = استفاده از مدل لوکال
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
       GROUP_CHAT_ID: "${GROUP_CHAT_ID}"
-    depends_on:
-      - ollama
-    networks:
-      - ollama_net
-
-  ollama:
-    image: ollama/ollama
-    container_name: ollama
-    ports:
-      - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - ollama_net
+      - ./group_members.json:/app/group_members.json
 
-volumes:
-  ollama_data:
+volumes: {}
 
-networks:
-  ollama_net:
+networks: {}

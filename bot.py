@@ -21,7 +21,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))
 TEHRAN_TZ = pytz.timezone("Asia/Tehran")
-USE_OPENAI = bool(OPENAI_API_KEY)
+USE_OPENAI = True  # Always use OpenAI
 
 # Group members: key = user_id, value = display name
 import json
@@ -132,21 +132,16 @@ def summarize_messages(threaded_messages):
         f"Group members: {member_list}\n\n"
         + "\n".join(prompt_sections)
     )
-    if USE_OPENAI:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": "You are a summarizer."},
-                      {"role": "user", "content": full_prompt}],
-            temperature=0.7,
-            max_tokens=1500,
-        )
-        return response["choices"][0]["message"]["content"].strip()
-    else:
-        res = requests.post(
-            "http://localhost:11434/api/generate",
-            json={"model":"mistral","prompt": full_prompt, "stream": False},     
-        )
-        return res.json().get("response","(Error in local model response)").strip()
+    
+    # Always use OpenAI
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "system", "content": "You are a summarizer."},
+                  {"role": "user", "content": full_prompt}],
+        temperature=0.7,
+        max_tokens=1500,
+    )
+    return response["choices"][0]["message"]["content"].strip()
 
 # Register handlers
 dp.add_handler(MessageHandler(Filters.text & ~Filters.command, save_message))
