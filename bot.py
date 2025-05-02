@@ -36,8 +36,7 @@ def load_group_members():
 group_members = load_group_members()
 
 # Initialize
-if USE_OPENAI:
-    openai.api_key = OPENAI_API_KEY
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 bot = Bot(token=TELEGRAM_TOKEN)
 logging.basicConfig(level=logging.INFO)
@@ -122,7 +121,7 @@ def summarize_messages(threaded_messages):
         prompt_sections.append(
             f"[Topic: {thread_title}]\n"
             f"Messages\n:{conversation}"
-        )  # fixed line break format
+        )
 
     full_prompt = (
         "These are categorized chat messages from a Telegram group.\n\n"
@@ -133,15 +132,16 @@ def summarize_messages(threaded_messages):
         + "\n".join(prompt_sections)
     )
     
-    # Always use OpenAI
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "system", "content": "You are a summarizer."},
-                  {"role": "user", "content": full_prompt}],
+        messages=[
+            {"role": "system", "content": "You are a summarizer."},
+            {"role": "user", "content": full_prompt}
+        ],
         temperature=0.7,
-        max_tokens=1500,
+        max_tokens=1500
     )
-    return response["choices"][0]["message"]["content"].strip()
+    return response.choices[0].message.content.strip()
 
 # Register handlers
 dp.add_handler(MessageHandler(Filters.text & ~Filters.command, save_message))
