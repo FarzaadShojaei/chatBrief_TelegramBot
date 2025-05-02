@@ -3,3 +3,4 @@ openai
 schedule
 pytz
 requests
+python-dotenv
