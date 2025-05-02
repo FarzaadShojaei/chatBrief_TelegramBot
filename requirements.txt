@@ -1,6 +1,1 @@
-python-telegram-bot==13.15
-openai
-schedule
-pytz
-requests
-python-dotenv
+ 
