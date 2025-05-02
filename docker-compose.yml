@@ -5,10 +5,8 @@ services:
     build: .
     container_name: telegram_summary_bot
     restart: always
-    environment:
-      TELEGRAM_TOKEN: "${TELEGRAM_TOKEN}"
-      OPENAI_API_KEY: "${OPENAI_API_KEY}"
-      GROUP_CHAT_ID: "${GROUP_CHAT_ID}"
+    env_file:
+      - secret.env
     volumes:
       - ./group_members.json:/app/group_members.json
 
