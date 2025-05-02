@@ -9,7 +9,6 @@ import logging
 import threading
 import schedule
 import requests
-# import openai  # Commented out as we're using Ollama
 import time
 from dotenv import load_dotenv
 from collections import defaultdict
@@ -19,11 +18,14 @@ load_dotenv("secret.env")
 
 # Configuration
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Not needed for Ollama
 GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))
 TEHRAN_TZ = pytz.timezone("Asia/Tehran")
-# USE_OPENAI = True  # Commented out as we're using Ollama exclusively
-OLLAMA_API_URL = "http://localhost:11434/api/generate"  # Ollama API endpoint
+OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://ollama:11434/api/generate")
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.info(f"Using Ollama API URL: {OLLAMA_API_URL}")
 
 # Group members: key = user_id, value = display name
 import json
@@ -37,17 +39,14 @@ def load_group_members():
 
 group_members = load_group_members()
 
-# Initialize
-# client = openai.OpenAI(api_key=OPENAI_API_KEY)  # Not needed for Ollama
-
+# Initialize bot
 bot = Bot(token=TELEGRAM_TOKEN)
-logging.basicConfig(level=logging.INFO)
 
 # Structure: {thread_id or None: list of messages}
 thread_logs = defaultdict(list)
 thread_titles = {}  # {thread_id: topic title}
 
-#Updater
+# Updater
 updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
 dp = updater.dispatcher
 
@@ -109,6 +108,7 @@ def get_messages_in_range(start, end):
 # Function to use Ollama for text generation
 def generate_with_ollama(prompt):
     try:
+        logger.info(f"Sending request to Ollama at {OLLAMA_API_URL}")
         response = requests.post(OLLAMA_API_URL, json={
             "model": "mistral",  # Using Mistral as default model
             "prompt": prompt,
@@ -117,10 +117,10 @@ def generate_with_ollama(prompt):
         if response.status_code == 200:
             return response.json()["response"]
         else:
-            logging.error(f"Ollama API error: {response.status_code}")
-            return "⚠️ Failed to generate summary. Please check if Ollama is running."
+            logger.error(f"Ollama API error: {response.status_code}")
+            return f"⚠️ Failed to generate summary. API returned status {response.status_code}"
     except Exception as e:
-        logging.error(f"Error calling Ollama API: {str(e)}")
+        logger.error(f"Error calling Ollama API: {str(e)}")
         return f"⚠️ Error generating summary: {str(e)}"
 
 def summarize_messages(threaded_messages):
@@ -152,7 +152,7 @@ def summarize_messages(threaded_messages):
     )
     
     # Use Ollama directly
-    logging.info("Generating summary using Ollama")
+    logger.info("Generating summary using Ollama")
     return generate_with_ollama(full_prompt)
 
 # Register handlers
@@ -162,4 +162,4 @@ dp.add_handler(CommandHandler("summary", manual_summary))
 threading.Thread(target=schedule_task, daemon=True).start()
 
 updater.start_polling()
-updater.idle()
+updater.idle() 
