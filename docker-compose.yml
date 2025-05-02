@@ -1,5 +1,4 @@
 version: "3.8"
-
 services:
   telegram-bot:
     build: .
@@ -7,9 +6,11 @@ services:
     restart: always
     env_file:
       - secret.env
-    volumes:
-      - ./group_members.json:/app/group_members.json
-
-volumes: {}
-
-networks: {}
+    environment:
+      OLLAMA_API_URL: http://ollama:11434/api/generate
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
+volumes:
+  ollama_data: {} 
