@@ -10,6 +10,7 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache
@@ -24,7 +25,10 @@ COPY secret.env .
 
 # Create healthcheck script
 RUN echo '#!/bin/bash\n\
-curl -s http://ollama:11434/api/tags | grep -q "mistral" || exit 1' > /app/healthcheck.sh && \
+if ! pgrep -f "python bot.py" > /dev/null; then\n\
+    exit 1\n\
+fi\n\
+curl -s http://ollama:11435/api/tags | grep -q "mistral" || exit 1' > /app/healthcheck.sh && \
     chmod +x /app/healthcheck.sh
 
 # Create startup script

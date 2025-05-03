@@ -21,7 +21,7 @@ class Config:
         self.TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
         self.GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))
         self.TEHRAN_TZ = pytz.timezone("Asia/Tehran")
-        self.OLLAMA_URL = "http://ollama:11434/api/generate"
+        self.OLLAMA_URL = "http://ollama:11435/api/generate"
         self.OLLAMA_MODEL = "mistral"
         self.SUMMARY_TIME_UTC = "23:25"  # 23:55 Tehran time
         self.DOCKER_COMPOSE_FILE = "docker-compose.yml"
@@ -167,15 +167,37 @@ Currently tracking messages for:
 
     def stop_command(self, update: Update, context: CallbackContext):
         try:
-            # Stop docker containers
-            subprocess.run(["docker-compose", "down"], check=True)
+            # Get the bot's process ID
+            pid = os.getpid()
+            
+            # Send stop message
             update.message.reply_text(
-                "🛑 Bot has been stopped. Use /start to start it again.",
+                "🛑 Bot is shutting down...",
                 parse_mode=ParseMode.MARKDOWN
             )
+            
+            # Stop docker containers
+            subprocess.run(["docker-compose", "down"], check=True)
+            
+            # Kill the bot process gracefully
+            os.kill(pid, 15)  # SIGTERM
+            time.sleep(2)  # Give it a chance to cleanup
+            
+            # Force kill if still running
+            try:
+                os.kill(pid, 0)  # Check if process still exists
+                os.kill(pid, 9)  # SIGKILL if still running
+            except OSError:
+                pass  # Process already terminated
+                
         except subprocess.CalledProcessError as e:
             update.message.reply_text(
                 "❌ Error stopping the bot containers. Please check the logs.",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception as e:
+            update.message.reply_text(
+                f"❌ Error during shutdown: {str(e)}",
                 parse_mode=ParseMode.MARKDOWN
             )
 
