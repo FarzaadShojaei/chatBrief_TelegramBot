@@ -1,0 +1,11 @@
+python-telegram-bot==13.15
+schedule==1.2.0
+pytz==2023.3
+requests==2.31.0
+python-dotenv==1.0.0
+urllib3==1.26.15
+APScheduler==3.6.3
+certifi>=2023.7.22
+typing-extensions>=4.5.0
+tzlocal>=5.0.1
+tornado==6.1 

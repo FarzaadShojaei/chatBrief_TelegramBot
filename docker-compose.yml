@@ -1,0 +1,49 @@
+version: "3.8"
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  model-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      ollama pull mistral &&
+      exit 0
+      "
+
+  telegram-bot:
+    build: .
+    container_name: telegram_summary_bot
+    restart: on-failure
+    env_file:
+      - secret.env
+    volumes:
+      - ./group_members.json:/app/group_members.json
+    depends_on:
+      ollama:
+        condition: service_healthy
+      model-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "ps", "aux", "|", "grep", "[p]ython bot.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  ollama_data: {} 
