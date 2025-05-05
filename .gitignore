@@ -1,0 +1,39 @@
+# Ignore secret environment file
+secret.env
+
+# Ignore message history
+message_history.json
+
+# Ignore logs directory
+logs/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+venv/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,0 +1,26 @@
+version: "3.8"
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  telegram-bot:
+    build: .
+    container_name: telegram_summary_bot
+    restart: on-failure
+    env_file:
+      - secret.env
+    volumes:
+      - ./group_members.json:/app/group_members.json
+      - ./message_history.json:/app/message_history.json
+      - ./logs:/app/logs
+    depends_on:
+      - ollama
+
+volumes:
+  ollama_data: {} 
