@@ -1,14 +1,67 @@
 """
-AI integration for text generation using Ollama.
+AI integration for text generation using Ollama with simple fallback.
 """
 
 import time
 import json
 import logging
 import requests
+import os
 
 # Get the logger from the config module
 logger = logging.getLogger("telegram_summary_bot.config")
+
+# Default to mistral, but allow override via environment variable
+DEFAULT_MODEL = "mistral"
+MODEL_NAME = os.environ.get("OLLAMA_MODEL", DEFAULT_MODEL)
+
+# Configuration for Ollama
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "ollama")
+OLLAMA_PORT = os.environ.get("OLLAMA_PORT", "11434")
+OLLAMA_URL = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/generate"
+
+# Performance parameters
+DEFAULT_TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "90"))
+
+
+def generate_simple_summary(prompt):
+    """
+    Generate a very simple summary when AI service fails.
+    
+    Args:
+        prompt (str): The text prompt that would have been sent to AI
+        
+    Returns:
+        str: A simple manually generated summary
+    """
+    logger.info("Generating simple summary as fallback")
+    
+    # Extract group members from the prompt
+    members = []
+    if "Group members:" in prompt:
+        members_section = prompt.split("Group members:")[1].split("\n")[0].strip()
+        members = [m.strip() for m in members_section.split(",")]
+    
+    # Create a simple summary
+    lines = []
+    lines.append("⚠️ AI Summary unavailable - Simple analysis instead:")
+    lines.append("")
+    
+    # Count messages by looking for timestamps [HH:MM]
+    message_count = prompt.count("[")
+    lines.append(f"Total messages: {message_count}")
+    
+    # List members
+    if members:
+        lines.append("")
+        lines.append("Participants:")
+        for member in members:
+            if member in prompt:
+                lines.append(f"- {member}: Sent messages")
+            else:
+                lines.append(f"- {member}: Did not participate")
+    
+    return "\n".join(lines)
 
 
 def generate_with_ollama(prompt):
@@ -21,23 +74,34 @@ def generate_with_ollama(prompt):
     Returns:
         str: The generated text response
     """
-    # Wait for Ollama to be available (initial delay)
-    time.sleep(5)
-    
-    max_retries = 5
-    retry_delay = 2  # seconds
+    # No initial delay needed with proper startup script
+    max_retries = 3
+    retry_delay = 1  # seconds
     
     for attempt in range(max_retries):
         try:
             logger.info(f"Attempt {attempt+1}/{max_retries} to connect to Ollama")
             
-            # Try to generate text using ollama
+            # Try to generate text using ollama with optimized parameters
             try:
-                # Specify stream=false to get a single response instead of a stream
+                # Performance optimization parameters
+                params = {
+                    "model": MODEL_NAME,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "num_ctx": 2048,        # Reduce context window for speed
+                        "num_thread": 4,        # Parallel threads
+                        "temperature": 0.1,     # Lower temperature for more deterministic responses
+                        "top_p": 0.95,          # Nucleus sampling
+                        "repeat_penalty": 1.1   # Slight penalty for repeating
+                    }
+                }
+                
                 response = requests.post(
-                    "http://localhost:11434/api/generate",
-                    json={"model": "mistral", "prompt": prompt, "stream": False},
-                    timeout=60
+                    OLLAMA_URL,
+                    json=params,
+                    timeout=DEFAULT_TIMEOUT
                 )
                 
                 if response.status_code == 200:
@@ -86,5 +150,6 @@ def generate_with_ollama(prompt):
                 time.sleep(retry_delay)
                 retry_delay *= 2
     
-    # If we exhausted all retries
-    return "⚠️ Failed to generate summary. Please check if Ollama is running with the mistral model." 
+    # If we exhausted all retries, use simple summary
+    logger.info("Ollama failed after multiple retries, using simple summary instead")
+    return generate_simple_summary(prompt) 

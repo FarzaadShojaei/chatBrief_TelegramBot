@@ -8,6 +8,24 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    # Uncomment the following lines if you have NVIDIA GPU
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
   telegram-bot:
     build: .
@@ -17,10 +35,19 @@ services:
       - secret.env
     volumes:
       - ./group_members.json:/app/group_members.json
-      - ./message_history.json:/app/message_history.json
       - ./logs:/app/logs
+      - ./data:/app/data
     depends_on:
-      - ollama
+      ollama:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    environment:
+      - DB_TYPE=sqlite
+      - DB_PATH=/app/data/telegram_bot.db
 
 volumes:
   ollama_data: {} 
